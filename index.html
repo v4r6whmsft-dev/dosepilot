@@ -1,0 +1,358 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>AI驱动抗肿瘤药物共享智能调度系统</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar" aria-label="系统导航">
+        <div class="brand">
+          <div class="brand-mark">DosePilot</div>
+          <div>
+            <h1>肿瘤药物共享调度</h1>
+            <p>PIVAS智能工作台</p>
+          </div>
+        </div>
+
+        <nav class="nav-list" aria-label="主要模块">
+          <a href="#dashboard" class="active">今日共享任务</a>
+          <a href="#order-import">导入医嘱</a>
+          <a href="#batching">批次调度</a>
+          <a href="#instructions">调配指令</a>
+          <a href="#analytics">节约统计</a>
+          <a href="#history">历史记录</a>
+          <a href="#ai">AI解释</a>
+          <a href="#drug-maintenance">药品维护</a>
+        </nav>
+      </aside>
+
+      <main class="workspace">
+        <header class="topbar">
+          <div>
+            <h2>抗肿瘤药物共享智能调度系统</h2>
+          </div>
+          <div class="topbar-actions">
+            <a class="secondary-action language-link" href="index-en.html">English Version</a>
+            <button id="confirmPlan" class="primary-action" type="button">一键确认方案</button>
+          </div>
+        </header>
+
+        <section id="dashboard" class="metric-grid" aria-label="今日共享概览">
+          <article class="metric">
+            <span>预计节约金额</span>
+            <strong id="savedAmount">-</strong>
+            <small>按节约瓶数实时估算</small>
+          </article>
+          <article class="metric">
+            <span>共享率</span>
+            <strong id="shareRate">-</strong>
+            <small>实际共享瓶数 / 总开启瓶数</small>
+          </article>
+          <article class="metric">
+            <span>浪费率</span>
+            <strong id="wasteRate">-</strong>
+            <small>剩余废弃剂量 / 开瓶剂量</small>
+          </article>
+          <article class="metric">
+            <span>待调配患者</span>
+            <strong id="patientCount">-</strong>
+            <small>自动纳入可共享计算</small>
+          </article>
+        </section>
+
+        <section id="order-import" class="panel wide-panel" aria-labelledby="importTitle">
+          <div class="panel-head">
+            <div>
+              <p class="eyebrow">CSV / TSV / 粘贴表格 · 导入后立即重算</p>
+              <h3 id="importTitle">导入当日医嘱</h3>
+            </div>
+            <div class="topbar-actions">
+              <button id="loadSampleOrders" class="secondary-action" type="button">载入示例</button>
+              <button id="importOrders" class="primary-action" type="button">导入医嘱</button>
+              <button id="clearOrders" class="secondary-action" type="button">清空</button>
+            </div>
+          </div>
+          <div class="import-layout">
+            <div class="import-form">
+              <label for="orderFile">上传当日医嘱文件</label>
+              <input id="orderFile" type="file" accept=".csv,.tsv,.txt" />
+              <label for="orderPaste">或粘贴医嘱表</label>
+              <textarea id="orderPaste" rows="8" spellcheck="false" placeholder="支持表头：患者, 药品名称, 医嘱剂量mg, 药品规格mg, 药品单价, 复溶后浓度mg/mL, 给药途径, 配置时间, 输注时间, 病区, 床号, 批次, 实际分配瓶数"></textarea>
+            </div>
+            <div class="import-help">
+              <h4>建议字段</h4>
+              <p>至少提供：患者、药品名称、医嘱剂量mg、药品规格mg。若提供给药途径，系统会区分静脉注射和静脉滴注；未填写时默认静脉滴注。</p>
+            </div>
+          </div>
+          <div class="real-world-grid" id="importMetrics"></div>
+          <div class="table-wrap compact-table">
+            <table>
+              <thead>
+                <tr>
+                  <th>药品</th>
+                  <th>患者数</th>
+                  <th>共享前瓶数</th>
+                  <th>共享后瓶数</th>
+                  <th>节约瓶数</th>
+                  <th>状态</th>
+                </tr>
+              </thead>
+              <tbody id="importSummaryRows"></tbody>
+            </table>
+          </div>
+          <div class="analysis-grid" id="orderAnalysis"></div>
+        </section>
+
+        <section id="batching" class="panel wide-panel" aria-labelledby="batchTitle">
+          <div class="panel-head">
+            <div>
+              <p class="eyebrow">按批次 · 按药品 · 共享后用瓶量</p>
+              <h3 id="batchTitle">当天批次用瓶与余液</h3>
+            </div>
+            <select id="currentBatch" aria-label="选择批次"></select>
+          </div>
+          <div class="table-wrap compact-table">
+            <table>
+              <thead>
+                <tr>
+                  <th>批次</th>
+                  <th>药品</th>
+                  <th>涉及患者</th>
+                  <th>共享后需开启瓶数</th>
+                  <th>是否有余液</th>
+                  <th>余液量</th>
+                  <th>最晚使用时间</th>
+                </tr>
+              </thead>
+              <tbody id="batchTimeline"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="single-panel-grid">
+          <article class="panel task-panel" aria-labelledby="taskTitle">
+            <div class="panel-head">
+              <div>
+                <p class="eyebrow">自动识别</p>
+                <h3 id="taskTitle">今日共享任务</h3>
+              </div>
+              <span id="runStatus" class="status-pill">已计算</span>
+            </div>
+            <div id="drugTasks" class="task-list"></div>
+          </article>
+        </section>
+
+        <section id="instructions" class="panel wide-panel" aria-labelledby="instructionTitle">
+          <div class="panel-head">
+            <div>
+              <p class="eyebrow">PIVAS可执行</p>
+              <h3 id="instructionTitle">共享后药品调配量自动换算</h3>
+            </div>
+            <button id="printLabels" class="secondary-action" type="button">生成调配核对单</button>
+          </div>
+          <div class="table-wrap">
+            <table class="instruction-table">
+              <thead>
+                <tr>
+                  <th>患者</th>
+                  <th>医嘱剂量</th>
+                  <th>应抽取药液体积</th>
+                  <th>溶媒类型及规格</th>
+                  <th>备注</th>
+                </tr>
+              </thead>
+              <tbody id="instructionRows"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="work-grid">
+          <article id="analytics" class="panel" aria-labelledby="analyticsTitle">
+            <div class="panel-head">
+              <div>
+                <p class="eyebrow">日报 / 周报 / 月报</p>
+                <h3 id="analyticsTitle">节约效果实时统计</h3>
+              </div>
+            </div>
+            <div id="analyticsCards" class="analytics-grid"></div>
+          </article>
+
+          <article id="history" class="panel" aria-labelledby="historyTitle">
+            <div class="panel-head">
+              <div>
+                <p class="eyebrow">确认后自动归档</p>
+                <h3 id="historyTitle">历史分配记录</h3>
+              </div>
+              <span id="historyCount" class="status-pill">0 条记录</span>
+            </div>
+            <div class="table-wrap compact-table">
+              <table>
+                <thead>
+                  <tr>
+                    <th>确认时间</th>
+                    <th>涉及药品</th>
+                    <th>涉及患者</th>
+                    <th>共享前瓶数</th>
+                    <th>共享后瓶数</th>
+                    <th>节约瓶数</th>
+                    <th>节约金额</th>
+                    <th>操作</th>
+                  </tr>
+                </thead>
+                <tbody id="historyRows"></tbody>
+              </table>
+            </div>
+            <div id="historyDetail" class="history-detail"></div>
+          </article>
+        </section>
+
+        <section class="single-panel-grid">
+          <article id="ai" class="panel" aria-labelledby="aiTitle">
+            <div class="panel-head">
+              <div>
+                <p class="eyebrow">RAG知识库 + 可解释AI</p>
+                <h3 id="aiTitle">智能问答与方案解释</h3>
+              </div>
+            </div>
+            <div class="qa-box">
+              <label for="aiQuestion">向系统提问</label>
+              <div class="question-row">
+                <input id="aiQuestion" type="text" value="为什么推荐当前共享方案？" />
+                <button id="askAi" class="secondary-action" type="button">询问</button>
+              </div>
+              <div id="aiAnswer" class="answer-box" aria-live="polite"></div>
+            </div>
+          </article>
+        </section>
+
+        <section id="drug-maintenance" class="panel wide-panel" aria-labelledby="drugMaintenanceTitle">
+          <div class="panel-head">
+            <div>
+              <p class="eyebrow">后台维护 · 药品知识库上传</p>
+              <h3 id="drugMaintenanceTitle">药品维护</h3>
+            </div>
+            <span id="drugKnowledgeCount" class="status-pill">0 种药品</span>
+          </div>
+          <div class="maintenance-layout">
+            <div class="knowledge-search">
+              <label for="drugKnowledgeSearch">药品查询</label>
+              <input id="drugKnowledgeSearch" type="search" placeholder="请输入药品名称进行查询" />
+              <span id="drugKnowledgeSearchStatus" class="maintenance-status">请输入药品名称进行查询。</span>
+            </div>
+            <div class="table-wrap compact-table">
+              <table>
+                <thead>
+                  <tr>
+                    <th>药品</th>
+                    <th>规格</th>
+                    <th>复溶浓度</th>
+                    <th>复溶加入量</th>
+                    <th>稀释液及规格</th>
+                    <th>复溶液稳定性</th>
+                    <th>稀释液稳定性</th>
+                    <th>共享状态</th>
+                    <th>确认状态</th>
+                    <th>规则备注</th>
+                  </tr>
+                </thead>
+                <tbody id="drugKnowledgeRows"></tbody>
+              </table>
+            </div>
+            <form id="drugMaintenanceEditForm" class="maintenance-form maintenance-edit-form">
+              <label>
+                药品名称
+                <input id="editDrugName" type="text" placeholder="从上方表格选择药品或录入新药" required />
+              </label>
+              <label>
+                药品规格mg/瓶
+                <input id="editStrength" type="number" min="0" step="0.01" required />
+              </label>
+              <label>
+                单价/瓶
+                <input id="editPrice" type="number" min="0" step="0.01" />
+              </label>
+              <label>
+                复溶后浓度mg/mL
+                <input id="editConcentration" type="number" min="0" step="0.01" required />
+              </label>
+              <label>
+                复溶溶媒
+                <input id="editReconstitution" type="text" />
+              </label>
+              <label>
+                复溶加入溶媒量mL
+                <input id="editReconstitutionVolume" type="number" min="0" step="0.01" />
+              </label>
+              <label>
+                稀释液及规格
+                <input id="editSolvent" type="text" required />
+              </label>
+              <label>
+                复溶液稳定性
+                <input id="editReconstitutedStability" type="text" placeholder="如：2-8℃不超过24小时" />
+              </label>
+              <label>
+                稀释液稳定性
+                <input id="editDilutedStability" type="text" placeholder="如：室温6小时；2-8℃24小时" />
+              </label>
+              <label>
+                最小准确抽取mL
+                <input id="editMinWithdraw" type="number" min="0" step="0.01" />
+              </label>
+              <label>
+                共享状态
+                <select id="editShareable">
+                  <option value="true">允许共享</option>
+                  <option value="false">禁止共享</option>
+                </select>
+              </label>
+              <label>
+                风险等级
+                <select id="editRisk">
+                  <option>中</option>
+                  <option>低</option>
+                  <option>高</option>
+                  <option>待维护</option>
+                </select>
+              </label>
+              <label class="maintenance-wide">
+                共享规则 / SOP备注
+                <input id="editRules" type="text" placeholder="多条规则请用分号分隔" />
+              </label>
+              <div class="maintenance-actions">
+                <button class="primary-action" type="submit">保存维护信息</button>
+                <button id="confirmDrugKnowledge" class="secondary-action" type="button">确认当前药品</button>
+                <button id="clearDrugEditForm" class="secondary-action" type="button">清空维护</button>
+              </div>
+            </form>
+            <div class="maintenance-upload">
+              <div class="import-form">
+                <label for="drugKnowledgeFile">上传药品知识库文件</label>
+                <input id="drugKnowledgeFile" type="file" accept=".csv,.tsv,.txt" />
+                <label for="drugKnowledgePaste">或粘贴知识库表</label>
+                <textarea id="drugKnowledgePaste" rows="8" spellcheck="false" placeholder="支持表头：药品通用名,药品规格,药品体积,是否需要复溶,复溶浓度,复溶溶媒,复溶溶媒量,复溶液稳定性,稀释液及规格,稀释液药品稳定性,共享状态,规则备注"></textarea>
+              </div>
+              <div class="import-help">
+                <h4>后台上传格式</h4>
+                <p>以一行一个“药品+规格”为维护单位。支持分别维护复溶液稳定性和稀释液稳定性；系统会按给药途径判断是否进入共享计算。</p>
+                <p>导入后，同名同规格药品会更新原知识库；新药品会新增到规则库，并立即用于后续医嘱共享识别。</p>
+                <div class="topbar-actions">
+                  <button id="loadDrugKnowledgeTemplate" class="secondary-action" type="button">载入模板</button>
+                  <button id="importDrugKnowledge" class="primary-action" type="button">导入知识库</button>
+                  <button id="clearDrugKnowledgeInput" class="secondary-action" type="button">清空</button>
+                </div>
+                <p id="drugKnowledgeUploadStatus" class="maintenance-status">等待上传药品知识库。</p>
+              </div>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script src="drug_knowledge_seed.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>
