@@ -1,0 +1,345 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Cancer Drug Vial Sharing Intelligent Scheduling System</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar" aria-label="System navigation">
+        <div class="brand">
+          <div class="brand-mark">DosePilot</div>
+          <div>
+            <h1>Cancer Drug Vial Sharing</h1>
+            <p>PIVAS Smart Workbench</p>
+          </div>
+        </div>
+
+        <nav class="nav-list" aria-label="Main modules">
+          <a href="#dashboard" class="active">Today's Sharing Tasks</a>
+          <a href="#order-import">Import Prescriptions</a>
+          <a href="#batching">Batch Scheduling</a>
+          <a href="#instructions">Preparation Instructions</a>
+          <a href="#analytics">Savings Analytics</a>
+          <a href="#history">History Records</a>
+          <a href="#drug-maintenance">Drug Knowledge</a>
+        </nav>
+      </aside>
+
+      <main class="workspace">
+        <header class="topbar">
+          <div>
+            <h2>Cancer Drug Vial Sharing Intelligent Scheduling System</h2>
+          </div>
+          <div class="topbar-actions">
+            <a class="secondary-action language-link" href="index.html">Chinese Version</a>
+            <button id="confirmPlan" class="primary-action" type="button">Confirm Plan</button>
+          </div>
+        </header>
+
+        <section id="dashboard" class="metric-grid" aria-label="Today sharing overview">
+          <article class="metric">
+            <span>Estimated Savings</span>
+            <strong id="savedAmount">-</strong>
+            <small>Estimated in real time by saved vials</small>
+          </article>
+          <article class="metric">
+            <span>Sharing Rate</span>
+            <strong id="shareRate">-</strong>
+            <small>Shared vials / opened vials</small>
+          </article>
+          <article class="metric">
+            <span>Waste Rate</span>
+            <strong id="wasteRate">-</strong>
+            <small>Discarded residual dose / opened dose</small>
+          </article>
+          <article class="metric">
+            <span>Patients Pending Prep</span>
+            <strong id="patientCount">-</strong>
+            <small>Automatically included in sharing calculation</small>
+          </article>
+        </section>
+
+        <section id="order-import" class="panel wide-panel" aria-labelledby="importTitle">
+          <div class="panel-head">
+            <div>
+              <p class="eyebrow">CSV / TSV / pasted table · recalculates after import</p>
+              <h3 id="importTitle">Import Daily Prescriptions</h3>
+            </div>
+            <div class="topbar-actions">
+              <button id="loadSampleOrders" class="secondary-action" type="button">Load Sample</button>
+              <button id="importOrders" class="primary-action" type="button">Import Prescriptions</button>
+              <button id="clearOrders" class="secondary-action" type="button">Clear</button>
+            </div>
+          </div>
+          <div class="import-layout">
+            <div class="import-form">
+              <label for="orderFile">Upload daily prescription file</label>
+              <div class="custom-file-control">
+                <input id="orderFile" class="native-file-input" type="file" accept=".csv,.tsv,.txt" />
+                <button class="secondary-action file-choose-button" type="button" data-file-trigger="orderFile">Choose File</button>
+                <span id="orderFileName" class="file-name">No file selected</span>
+              </div>
+              <label for="orderPaste">Or paste prescription table</label>
+              <textarea id="orderPaste" rows="8" spellcheck="false" placeholder="Supported headers: Patient Name, Drug Name, Order Dose (mg), Vial Strength (mg), Price per Vial, Reconstituted Concentration (mg/mL), Route, Preparation Time, Infusion Time, Ward, Bed, Batch, Dispensed Vials"></textarea>
+            </div>
+            <div class="import-help">
+              <h4>Suggested Fields</h4>
+              <p>At minimum provide Patient Name, Drug Name, Order Dose (mg), and Vial Strength (mg). If Route is provided, the system distinguishes IV injection from IV infusion; missing Route defaults to IV infusion.</p>
+            </div>
+          </div>
+          <div class="real-world-grid" id="importMetrics"></div>
+          <div class="table-wrap compact-table">
+            <table>
+              <thead>
+                <tr>
+                  <th>Drug</th>
+                  <th>Patients</th>
+                  <th>Baseline Vials</th>
+                  <th>Optimized Vials</th>
+                  <th>Saved Vials</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody id="importSummaryRows"></tbody>
+            </table>
+          </div>
+          <div class="analysis-grid" id="orderAnalysis"></div>
+        </section>
+
+        <section id="batching" class="panel wide-panel" aria-labelledby="batchTitle">
+          <div class="panel-head">
+            <div>
+              <p class="eyebrow">By batch · by drug · optimized vial usage</p>
+              <h3 id="batchTitle">Daily Batch Vials and Residuals</h3>
+            </div>
+            <select id="currentBatch" aria-label="Select batch"></select>
+          </div>
+          <div class="table-wrap compact-table">
+            <table>
+              <thead>
+                <tr>
+                  <th>Batch</th>
+                  <th>Drug</th>
+                  <th>Patients</th>
+                  <th>Opened Vials After Sharing</th>
+                  <th>Residual?</th>
+                  <th>Residual Amount</th>
+                  <th>Latest Use Time</th>
+                </tr>
+              </thead>
+              <tbody id="batchTimeline"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="single-panel-grid">
+          <article class="panel task-panel" aria-labelledby="taskTitle">
+            <div class="panel-head">
+              <div>
+                <p class="eyebrow">Auto Detection</p>
+                <h3 id="taskTitle">Today's Sharing Tasks</h3>
+              </div>
+              <span id="runStatus" class="status-pill">Calculated</span>
+            </div>
+            <div id="drugTasks" class="task-list"></div>
+          </article>
+        </section>
+
+        <section id="instructions" class="panel wide-panel" aria-labelledby="instructionTitle">
+          <div class="panel-head">
+            <div>
+              <p class="eyebrow">PIVAS Executable</p>
+              <h3 id="instructionTitle">Post-sharing Preparation Volume Conversion</h3>
+            </div>
+            <button id="printLabels" class="secondary-action" type="button">Generate Check Sheet</button>
+          </div>
+          <div class="table-wrap">
+            <table class="instruction-table">
+              <thead>
+                <tr>
+                  <th>Patient</th>
+                  <th>Order Dose</th>
+                  <th>Withdrawal Volume</th>
+                  <th>Diluent and Volume</th>
+                  <th>Notes</th>
+                </tr>
+              </thead>
+              <tbody id="instructionRows"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="work-grid">
+          <article id="analytics" class="panel" aria-labelledby="analyticsTitle">
+            <div class="panel-head">
+              <div>
+                <p class="eyebrow">Daily / Weekly / Monthly</p>
+                <h3 id="analyticsTitle">Real-time Savings Analytics</h3>
+              </div>
+            </div>
+            <div id="analyticsCards" class="analytics-grid"></div>
+          </article>
+
+          <article id="history" class="panel" aria-labelledby="historyTitle">
+            <div class="panel-head">
+              <div>
+                <p class="eyebrow">Archived after confirmation</p>
+                <h3 id="historyTitle">History Records</h3>
+              </div>
+              <span id="historyCount" class="status-pill">0 records</span>
+            </div>
+            <div class="table-wrap compact-table">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Confirmed Time</th>
+                    <th>Drugs</th>
+                    <th>Patients</th>
+                    <th>Baseline Vials</th>
+                    <th>Optimized Vials</th>
+                    <th>Saved Vials</th>
+                    <th>Savings</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="historyRows"></tbody>
+              </table>
+            </div>
+            <div id="historyDetail" class="history-detail"></div>
+          </article>
+        </section>
+        <section id="drug-maintenance" class="panel wide-panel" aria-labelledby="drugMaintenanceTitle">
+          <div class="panel-head">
+            <div>
+              <p class="eyebrow">Back-office maintenance · drug knowledge upload</p>
+              <h3 id="drugMaintenanceTitle">Drug Knowledge</h3>
+            </div>
+            <span id="drugKnowledgeCount" class="status-pill">0 drugs</span>
+          </div>
+          <div class="maintenance-layout">
+            <div class="knowledge-search">
+              <label for="drugKnowledgeSearch">Drug Search</label>
+              <input id="drugKnowledgeSearch" type="search" placeholder="Enter a drug name to search" />
+              <span id="drugKnowledgeSearchStatus" class="maintenance-status">Enter a drug name to search.</span>
+            </div>
+            <div class="table-wrap compact-table">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Drug</th>
+                    <th>Strength</th>
+                    <th>Reconstituted Concentration</th>
+                    <th>Reconstitution Volume</th>
+                    <th>Diluent and Volume</th>
+                    <th>Reconstituted Stability</th>
+                    <th>Diluted Stability</th>
+                    <th>Sharing Status</th>
+                    <th>Confirmation</th>
+                    <th>Rule Notes</th>
+                  </tr>
+                </thead>
+                <tbody id="drugKnowledgeRows"></tbody>
+              </table>
+            </div>
+            <form id="drugMaintenanceEditForm" class="maintenance-form maintenance-edit-form">
+              <label>
+                Drug Name
+                <input id="editDrugName" type="text" placeholder="Select a drug above or enter a new drug" required />
+              </label>
+              <label>
+                Vial strength (mg/vial)
+                <input id="editStrength" type="number" min="0" step="0.01" required />
+              </label>
+              <label>
+                Price per vial
+                <input id="editPrice" type="number" min="0" step="0.01" />
+              </label>
+              <label>
+                Reconstituted concentration (mg/mL)
+                <input id="editConcentration" type="number" min="0" step="0.01" required />
+              </label>
+              <label>
+                Reconstitution solvent
+                <input id="editReconstitution" type="text" />
+              </label>
+              <label>
+                Reconstitution volume (mL)
+                <input id="editReconstitutionVolume" type="number" min="0" step="0.01" />
+              </label>
+              <label>
+                Diluent and Volume
+                <input id="editSolvent" type="text" required />
+              </label>
+              <label>
+                Reconstituted Stability
+                <input id="editReconstitutedStability" type="text" placeholder="e.g., 2-8 C for no more than 24 h" />
+              </label>
+              <label>
+                Diluted Stability
+                <input id="editDilutedStability" type="text" placeholder="e.g., room temperature 6 h; 2-8 C 24 h" />
+              </label>
+              <label>
+                Minimum accurate withdrawal (mL)
+                <input id="editMinWithdraw" type="number" min="0" step="0.01" />
+              </label>
+              <label>
+                Sharing Status
+                <select id="editShareable">
+                  <option value="true">Shareable</option>
+                  <option value="false">Not shareable</option>
+                </select>
+              </label>
+              <label>
+                Risk Level
+                <select id="editRisk">
+                  <option>Medium</option>
+                  <option>Low</option>
+                  <option>High</option>
+                  <option>Pending</option>
+                </select>
+              </label>
+              <label class="maintenance-wide">
+                Sharing Rules / SOP Notes
+                <input id="editRules" type="text" placeholder="Separate multiple rules with semicolons" />
+              </label>
+              <div class="maintenance-actions">
+                <button class="primary-action" type="submit">Save Maintenance Info</button>
+                <button id="confirmDrugKnowledge" class="secondary-action" type="button">Confirm Current Drug</button>
+                <button id="clearDrugEditForm" class="secondary-action" type="button">Clear Form</button>
+              </div>
+            </form>
+            <div class="maintenance-upload">
+              <div class="import-form">
+                <label for="drugKnowledgeFile">Upload drug knowledge file</label>
+                <div class="custom-file-control">
+                  <input id="drugKnowledgeFile" class="native-file-input" type="file" accept=".csv,.tsv,.txt" />
+                  <button class="secondary-action file-choose-button" type="button" data-file-trigger="drugKnowledgeFile">Choose File</button>
+                  <span id="drugKnowledgeFileName" class="file-name">No file selected</span>
+                </div>
+                <label for="drugKnowledgePaste">Or paste knowledge table</label>
+                <textarea id="drugKnowledgePaste" rows="8" spellcheck="false" placeholder="Supported headers: Generic Name,Vial Strength,Drug Volume,Requires Reconstitution,Reconstituted Concentration,Reconstitution Solvent,Reconstitution Volume,Reconstituted Stability,Diluent and Volume,Diluted Stability,Sharing Status,Rule Notes"></textarea>
+              </div>
+              <div class="import-help">
+                <h4>Back-office Upload Format</h4>
+                <p>Maintain one row per drug plus strength. Reconstituted and diluted stability can be maintained separately; route is considered before sharing calculation.</p>
+                <p>After import, drugs with the same name and strength update the current knowledge base; new drugs are added to the rule base and used for later order recognition.</p>
+                <div class="topbar-actions">
+                  <button id="loadDrugKnowledgeTemplate" class="secondary-action" type="button">Load Template</button>
+                  <button id="importDrugKnowledge" class="primary-action" type="button">Import Knowledge Base</button>
+                  <button id="clearDrugKnowledgeInput" class="secondary-action" type="button">Clear</button>
+                </div>
+                <p id="drugKnowledgeUploadStatus" class="maintenance-status">Waiting for drug knowledge upload.</p>
+              </div>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script src="drug_knowledge_seed_en.js"></script>
+    <script src="app-en.js"></script>
+  </body>
+</html>
