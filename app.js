@@ -1356,7 +1356,22 @@ function renderAnalytics(result, savedVials, savedAmount, wasteDose, openedDose)
 
 function loadHistoryRecords() {
   try {
-    historyRecords = JSON.parse(localStorage.getItem(HISTORY_STORAGE_KEY) || "[]");
+    const stored = JSON.parse(localStorage.getItem(HISTORY_STORAGE_KEY) || "[]");
+    historyRecords = Array.isArray(stored) ? stored.filter(record => record && typeof record === "object").map(record => {
+      if (record.baselineVials !== undefined) return record;
+      // Preserve snapshots saved by the earlier public app without inventing missing instructions.
+      return {
+        ...record,
+        id: String(record.id),
+        confirmedAt: record.time || "",
+        drugs: String(record.drugs || "").split(/[,，]/).filter(Boolean).length,
+        baselineVials: parseNumber(record.before),
+        optimizedVials: parseNumber(record.after),
+        savedVials: parseNumber(record.saved),
+        savedAmount: parseNumber(record.amount),
+        legacySummary: String(record.detail || "").replace(/<br\s*\/?>/gi, "\n")
+      };
+    }) : [];
   } catch {
     historyRecords = [];
   }
@@ -1518,6 +1533,11 @@ function renderHistoryDetail() {
     document.querySelector("#historyDetail").innerHTML = "";
     return;
   }
+  if (record.legacySummary !== undefined) {
+    const detail = document.querySelector("#historyDetail");
+    detail.textContent = record.legacySummary;
+    return;
+  }
   document.querySelector("#historyDetail").innerHTML = `
     <div class="history-section">
       <h4>药品汇总</h4>
@@ -1554,6 +1574,15 @@ function csvEscape(value) {
 }
 
 function exportHistoryRecord(record) {
+  if (record.legacySummary !== undefined) {
+    const blob = new Blob(["\ufeff" + csvEscape(record.legacySummary)], { type: "text/csv;charset=utf-8" });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = "DosePilot-history.csv";
+    link.click();
+    URL.revokeObjectURL(link.href);
+    return;
+  }
   const headers = ["药品", "患者", "医嘱剂量", "应抽取药液体积", "溶媒类型及规格", "备注"];
   const lines = [
     headers.map(csvEscape).join(","),
