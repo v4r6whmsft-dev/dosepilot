@@ -78,7 +78,7 @@
             <div class="import-form">
               <label for="orderFile">Upload daily prescription file</label>
               <div class="custom-file-control">
-                <input id="orderFile" class="native-file-input" type="file" accept=".csv,.tsv,.txt" />
+                <input id="orderFile" class="native-file-input" type="file" accept=".xlsx,.xls,.csv,.tsv,.txt" />
                 <button class="secondary-action file-choose-button" type="button" data-file-trigger="orderFile">Choose File</button>
                 <span id="orderFileName" class="file-name">No file selected</span>
               </div>
@@ -339,7 +339,44 @@
       </main>
     </div>
 
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <script src="drug_knowledge_seed_en.js?v=20260907-knowledge"></script>
+    <script>
+      document.addEventListener("change", async event => {
+        if (event.target?.id !== "orderFile") return;
+        event.stopImmediatePropagation();
+        const file = event.target.files?.[0];
+        const fileNameLabel = document.querySelector("#orderFileName");
+        if (fileNameLabel) fileNameLabel.textContent = file?.name || "No file selected";
+        if (!file) return;
+        const readText = async selectedFile => {
+          if (/\.xlsx?$/i.test(selectedFile.name)) {
+            if (!window.XLSX) {
+              window.alert("The Excel parser has not finished loading. Try again shortly, or save Excel as CSV before importing.");
+              return "";
+            }
+            const workbook = window.XLSX.read(await selectedFile.arrayBuffer(), { type: "array" });
+            const firstSheetName = workbook.SheetNames[0];
+            return firstSheetName ? window.XLSX.utils.sheet_to_csv(workbook.Sheets[firstSheetName], { FS: ",", RS: "\n", blankrows: false }) : "";
+          }
+          const buffer = await selectedFile.arrayBuffer();
+          const utf8Text = new TextDecoder("utf-8").decode(buffer);
+          if (!utf8Text.includes("�")) return utf8Text;
+          try {
+            return new TextDecoder("gb18030").decode(buffer);
+          } catch {
+            return utf8Text;
+          }
+        };
+        const text = await readText(file);
+        if (!text) {
+          event.target.value = "";
+          if (fileNameLabel) fileNameLabel.textContent = "No file selected";
+          return;
+        }
+        document.querySelector("#orderPaste").value = text;
+      }, true);
+    </script>
     <script src="app-en.js"></script>
   </body>
 </html>
