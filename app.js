@@ -1642,7 +1642,6 @@ document.querySelector("#orderFile").addEventListener("change", async event => {
       return;
     }
     document.querySelector("#orderPaste").value = text;
-    importOrderText(text);
   } catch (error) {
     console.error("Prescription import failed", error);
     window.alert("医嘱导入或计算失败，请检查文件内容后重试。");
