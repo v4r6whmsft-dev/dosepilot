@@ -354,39 +354,6 @@
 
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <script src="drug_knowledge_seed.js"></script>
-    <script>
-      document.addEventListener("change", async event => {
-        if (event.target?.id !== "orderFile") return;
-        event.stopImmediatePropagation();
-        const file = event.target.files?.[0];
-        if (!file) return;
-        const readText = async selectedFile => {
-          if (/\.xlsx?$/i.test(selectedFile.name)) {
-            if (!window.XLSX) {
-              window.alert("Excel解析库尚未加载完成，请稍后重试；也可以先将Excel另存为CSV后导入。");
-              return "";
-            }
-            const workbook = window.XLSX.read(await selectedFile.arrayBuffer(), { type: "array" });
-            const firstSheetName = workbook.SheetNames[0];
-            return firstSheetName ? window.XLSX.utils.sheet_to_csv(workbook.Sheets[firstSheetName], { FS: ",", RS: "\n", blankrows: false }) : "";
-          }
-          const buffer = await selectedFile.arrayBuffer();
-          const utf8Text = new TextDecoder("utf-8").decode(buffer);
-          if (!utf8Text.includes("�")) return utf8Text;
-          try {
-            return new TextDecoder("gb18030").decode(buffer);
-          } catch {
-            return utf8Text;
-          }
-        };
-        const text = await readText(file);
-        if (!text) {
-          event.target.value = "";
-          return;
-        }
-        document.querySelector("#orderPaste").value = text;
-      }, true);
-    </script>
-    <script src="app.js"></script>
+    <script src="app.js?v=20260908-calculation"></script>
   </body>
 </html>
