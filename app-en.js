@@ -1749,7 +1749,6 @@ document.querySelector("#orderFile").addEventListener("change", async event => {
       return;
     }
     document.querySelector("#orderPaste").value = text;
-    importOrderText(text);
   } catch (error) {
     console.error("Prescription import failed", error);
     window.alert("Prescription import or calculation failed. Check the file contents and try again.");
