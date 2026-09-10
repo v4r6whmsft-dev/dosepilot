@@ -1,73 +1,5 @@
-const drugs = [
-  {
-    id: "bev",
-    name: "贝伐珠单抗",
-    vialStrengthMg: 100,
-    pricePerVial: 1180,
-    concentrationMgMl: 10,
-    reconstitutionSolvent: "注射用水",
-    solvent: "0.9% NaCl 100 mL",
-    compatibleSolvents: ["0.9% NaCl 100 mL", "0.9% NaCl 250 mL"],
-    stabilityHours: 8,
-    minWithdrawMl: 0.5,
-    lightSensitive: false,
-    refrigerated: false,
-    shareable: true,
-    riskLevel: "中",
-    rules: ["开瓶后8小时内使用", "同药同溶媒可共享", "允许跨病区共享"]
-  },
-  {
-    id: "pem",
-    name: "培美曲塞",
-    vialStrengthMg: 500,
-    pricePerVial: 1460,
-    concentrationMgMl: 25,
-    reconstitutionSolvent: "0.9% NaCl",
-    solvent: "0.9% NaCl 100 mL",
-    compatibleSolvents: ["0.9% NaCl 100 mL"],
-    stabilityHours: 6,
-    minWithdrawMl: 1,
-    lightSensitive: false,
-    refrigerated: false,
-    shareable: true,
-    riskLevel: "中",
-    rules: ["复溶后6小时内使用", "按配置批次共享", "需核对肾功能相关医嘱"]
-  },
-  {
-    id: "oxa",
-    name: "奥沙利铂",
-    vialStrengthMg: 100,
-    pricePerVial: 720,
-    concentrationMgMl: 5,
-    reconstitutionSolvent: "5% Glucose",
-    solvent: "5% Glucose 250 mL",
-    compatibleSolvents: ["5% Glucose 250 mL", "5% Glucose 500 mL"],
-    stabilityHours: 6,
-    minWithdrawMl: 0.5,
-    lightSensitive: true,
-    refrigerated: false,
-    shareable: true,
-    riskLevel: "高",
-    rules: ["禁用含氯溶媒", "避光配置", "复溶后6小时内使用"]
-  },
-  {
-    id: "trial",
-    name: "临床试验盲法药",
-    vialStrengthMg: 80,
-    pricePerVial: 0,
-    concentrationMgMl: 8,
-    reconstitutionSolvent: "专用溶媒",
-    solvent: "专用溶媒 50 mL",
-    compatibleSolvents: ["专用溶媒 50 mL"],
-    stabilityHours: 2,
-    minWithdrawMl: 0.5,
-    lightSensitive: true,
-    refrigerated: true,
-    shareable: false,
-    riskLevel: "高",
-    rules: ["盲法管理", "禁止共享", "需独立配置"]
-  }
-];
+// The confirmed knowledge file is the sole source of maintained drug records.
+const drugs = [];
 
 let orders = [];
 
@@ -993,6 +925,11 @@ function renderInstructions(plans) {
   document.querySelector("#instructionRows").innerHTML = rows.join("") || `<tr><td colspan="5">请先在“今日共享任务”中选择药品。</td></tr>`;
 }
 
+function knowledgeCell(drug, key, fallback) {
+  const value = drug.sourceKnowledge ? (drug.sourceKnowledge[key] ?? "") : fallback;
+  return String(value ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
 function renderDrugKnowledge() {
   const query = normalizeText(drugKnowledgeSearchTerm);
   const visibleDrugs = query
@@ -1018,16 +955,16 @@ function renderDrugKnowledge() {
   document.querySelector("#drugKnowledgeRows").innerHTML = visibleDrugs.map(drug => {
     return `
       <tr data-drug-id="${drug.id}" class="${drug.id === selectedMaintenanceDrugId ? "selected-row" : ""}">
-        <td>${drug.name}</td>
-        <td>${fmtDose(drug.vialStrengthMg)}/瓶</td>
-        <td>${drug.concentrationMgMl} mg/mL</td>
-        <td>${formatReconstitutionVolume(drug)}</td>
-        <td>${drug.solvent}</td>
-        <td>${stabilityLabel(drug.reconstitutedStabilityText, getReconstitutedStabilityHours(drug))}</td>
-        <td>${stabilityLabel(drug.dilutedStabilityText, getDilutedStabilityHours(drug))}</td>
-        <td><span class="${drug.shareable ? "ok" : "warning"}">${drug.shareableText || (drug.shareable ? "允许共享" : "禁止共享")}</span></td>
+        <td>${knowledgeCell(drug, "drugName", drug.name)}</td>
+        <td>${knowledgeCell(drug, "specText", `${fmtDose(drug.vialStrengthMg)}/瓶`)}${drug.sourceKnowledge?.drugVolumeText ? ` / ${knowledgeCell(drug, "drugVolumeText", "")}` : ""}</td>
+        <td>${knowledgeCell(drug, "concentration", `${drug.concentrationMgMl} mg/mL`)}</td>
+        <td>${knowledgeCell(drug, "reconstitutionVolumeText", formatReconstitutionVolume(drug))}</td>
+        <td>${knowledgeCell(drug, "solvent", drug.solvent)}</td>
+        <td>${knowledgeCell(drug, "reconstitutedStabilityText", stabilityLabel(drug.reconstitutedStabilityText, getReconstitutedStabilityHours(drug)))}</td>
+        <td>${knowledgeCell(drug, "dilutedStabilityText", stabilityLabel(drug.dilutedStabilityText, getDilutedStabilityHours(drug)))}</td>
+        <td><span class="${drug.shareable ? "ok" : "warning"}">${knowledgeCell(drug, "shareable", drug.shareableText)}</span></td>
         <td><span class="${confirmedDrugIds.has(drug.id) ? "ok" : "warning"}">${confirmedDrugIds.has(drug.id) ? "已确认" : "待确认"}</span></td>
-        <td>${drug.rules.join("；")}</td>
+        <td>${knowledgeCell(drug, "rules", drug.rules.join("；"))}</td>
       </tr>
     `;
   }).join("") || `<tr><td colspan="10">未找到匹配药品。</td></tr>`;
@@ -1071,6 +1008,7 @@ function buildMaintainedDrug(row, existing) {
 
   return {
     id: existing?.id || makeDrugId(name, strength),
+    sourceKnowledge: { ...row },
     name,
     vialStrengthMg: strength,
     pricePerVial: parseNumber(row.price) || existing?.pricePerVial || 0,
@@ -1142,15 +1080,11 @@ function seedDrugKnowledgeRows() {
     const name = (row.drugName || "").trim();
     const strength = parseStrengthMg(row);
     if (!name || strength <= 0) continue;
-    const existing = findDrugByNameAndStrength(name, strength);
-    const exactExisting = existing && Math.abs(existing.vialStrengthMg - strength) < 0.0001 ? existing : null;
-    const maintainedDrug = buildMaintainedDrug(row, exactExisting);
+    // Keep distinct source rows, including equal strengths with different drug volumes.
+    const maintainedDrug = buildMaintainedDrug(row, null);
     if (!maintainedDrug) continue;
-    if (exactExisting) {
-      Object.assign(exactExisting, maintainedDrug);
-    } else {
-      drugs.push(maintainedDrug);
-    }
+    if (byDrug(maintainedDrug.id)) maintainedDrug.id += `_seed_${drugs.length + 1}`;
+    drugs.push(maintainedDrug);
   }
 }
 
@@ -1177,6 +1111,19 @@ function fillDrugEditForm(drug) {
   document.querySelector("#editShareable").value = String(drug.shareable);
   document.querySelector("#editRisk").value = drug.riskLevel;
   document.querySelector("#editRules").value = drug.rules.join("；");
+  if (drug.sourceKnowledge) {
+    const source = drug.sourceKnowledge;
+    document.querySelector("#editPrice").value = source.price ? parseNumber(source.price) : "";
+    document.querySelector("#editConcentration").value = source.concentration ? parseConcentrationMgMl(source.concentration) : "";
+    document.querySelector("#editReconstitution").value = source.reconstitutionSolvent || "";
+    document.querySelector("#editReconstitutionVolume").value = source.reconstitutionVolumeText ? parseVolumeMl(source.reconstitutionVolumeText) : "";
+    document.querySelector("#editSolvent").value = source.solvent || "";
+    document.querySelector("#editReconstitutedStability").value = source.reconstitutedStabilityText || "";
+    document.querySelector("#editDilutedStability").value = source.dilutedStabilityText || "";
+    document.querySelector("#editMinWithdraw").value = source.minWithdrawMl || "";
+    document.querySelector("#editRisk").value = source.riskLevel || "";
+    document.querySelector("#editRules").value = source.rules || "";
+  }
   renderDrugKnowledge();
 }
 
