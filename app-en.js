@@ -637,7 +637,7 @@ function normalizeHeader(header) {
     ["actualusedvials", "actualUsedVials"], ["actualused", "actualUsedVials"], ["实际使用量", "actualUsedVials"], ["实际使用瓶", "actualUsedVials"],
     ["vialstrengthmg", "strengthMg"], ["vialstrength", "strengthMg"], ["strengthmg", "strengthMg"], ["strength", "strengthMg"], ["药品规格mg", "strengthMg"], ["规格mg", "strengthMg"],
     ["specification", "specText"], ["spec", "specText"], ["药品规格", "specText"], ["规格", "specText"],
-    ["pricepervial", "price"], ["drugprice", "price"], ["price", "price"], ["药品单价", "price"], ["单价", "price"],
+    ["pricepervial", "price"], ["unitprice", "price"], ["drugprice", "price"], ["price", "price"], ["药品单价", "price"], ["单价", "price"],
     ["reconstitutedconcentrationmgml", "concentration"], ["reconstitutedconcentration", "concentration"], ["concentrationmgml", "concentration"], ["concentration", "concentration"], ["复溶浓度", "concentration"],
     ["reconstitutionsolvent", "reconstitutionSolvent"], ["复溶溶媒", "reconstitutionSolvent"],
     ["reconstitutionvolume", "reconstitutionVolumeText"], ["reconstitutionvolumeml", "reconstitutionVolumeText"], ["复溶溶媒量", "reconstitutionVolumeText"], ["复溶加入溶媒量ml", "reconstitutionVolumeText"],
@@ -768,6 +768,15 @@ function drugForImportedRow(row) {
   return drug;
 }
 
+function parseOrderDoseMg(value) {
+  const text = String(value ?? "").trim().replace(/,/g, "");
+  const match = text.match(/^([+-]?(?:\d+(?:\.\d*)?|\.\d+))\s*(mg|g|ug|mcg|[µμ]g)?$/i);
+  if (!match) return NaN;
+  const unit = (match[2] || "mg").toLowerCase();
+  const factor = unit === "g" ? 1000 : unit === "mg" ? 1 : 0.001;
+  return Number(match[1]) * factor;
+}
+
 function importedRowsToOrders(rows) {
   resetDynamicDrugs();
   const nextOrders = [];
@@ -776,8 +785,10 @@ function importedRowsToOrders(rows) {
   rows.forEach((row, index) => {
     const drug = drugForImportedRow(row);
     const actualUsedVials = parseNumber(row.actualUsedVials);
-    const doseMg = parseNumber(row.doseMg) || (drug ? actualUsedVials * drug.vialStrengthMg : 0);
-    if (!drug || doseMg <= 0) {
+    const doseMg = String(row.doseMg ?? "").trim()
+      ? parseOrderDoseMg(row.doseMg)
+      : (drug ? actualUsedVials * drug.vialStrengthMg : 0);
+    if (!drug || !Number.isFinite(doseMg) || doseMg <= 0) {
       rejected.push({ row: index + 2, reason: "Missing drug name/strength, or missing order dose (mg)/actual used vials" });
       return;
     }
